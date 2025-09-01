@@ -1,0 +1,273 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Document Camera</title>
+  <meta name="description" content="Fullscreen webcam viewer for document cameras with zoom controls and camera switching" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" integrity="sha512-iecdLmaskl7CVkqkXNQ/ZH/XLlvWZOJyj7Yy7tcenmpD1ypASozpmT/E0iPtmFIB46ZmdtAc9eNBvH0H/ZpiBw==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      height: 100%;
+      background: #000;
+    }
+    /* Full-viewport video, maintain aspect, no mirroring */
+    video#camera {
+      position: fixed;
+      inset: 0;
+      width: 100vw;
+      height: 100vh;
+      object-fit: cover; /* fill screen, may crop edges */
+      object-position: center center;
+      background: #000;
+      transform: none; /* ensure no mirror; rotation toggled via JS */
+      display: block;
+    }
+
+    /* Legend toggle UI */
+    .legend-toggle {
+      position: fixed;
+      right: 16px;
+      bottom: 16px;
+      width: 40px;
+      height: 40px;
+      border-radius: 20px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(255, 255, 255, 0.2);
+      color: #fff;
+      backdrop-filter: blur(6px);
+      -webkit-backdrop-filter: blur(6px);
+      cursor: pointer;
+      user-select: none;
+      transition: background 0.2s ease, transform 0.2s ease;
+      z-index: 10;
+    }
+    .legend-toggle:hover { background: rgba(255, 255, 255, 0.3); }
+    .legend-toggle:active { transform: scale(0.96); }
+
+    .legend-panel {
+      position: fixed;
+      right: 16px;
+      bottom: 64px;
+      max-width: min(90vw, 420px);
+      color: #fff;
+      background: rgba(0, 0, 0, 0.45);
+      border: 1px solid rgba(255, 255, 255, 0.25);
+      border-radius: 12px;
+      padding: 12px 14px;
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+      font-size: 14px;
+      line-height: 1.4;
+      backdrop-filter: blur(8px) saturate(120%);
+      -webkit-backdrop-filter: blur(8px) saturate(120%);
+      box-shadow: 0 6px 24px rgba(0,0,0,0.35);
+      z-index: 10;
+      display: none;
+    }
+    .legend-panel.visible { display: block; }
+    .legend-panel h2 {
+      margin: 0 0 8px 0;
+      font-size: 15px;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+    }
+    .legend-list { margin: 0; padding: 0; list-style: none; }
+    .legend-list li { display: flex; justify-content: space-between; gap: 16px; padding: 4px 0; }
+    .legend-key {
+      font-weight: 700;
+      font-variant-numeric: tabular-nums;
+      letter-spacing: 0.02em;
+      opacity: 0.95;
+      white-space: nowrap;
+    }
+    .legend-desc { opacity: 0.95; text-align: right; }
+  </style>
+</head>
+<body>
+  <video id="camera" autoplay playsinline></video>
+  <div class="legend-toggle" id="legendToggle" title="Show shortcuts" aria-label="Show shortcuts" role="button">
+    <i class="fas fa-info-circle"></i>
+  </div>
+  <div class="legend-panel" id="legendPanel" aria-live="polite" aria-hidden="true">
+    <h2>Shortcuts</h2>
+    <ul class="legend-list">
+      <li><span class="legend-key">Space</span><span class="legend-desc">Toggle fill (cover/contain)</span></li>
+      <li><span class="legend-key">C</span><span class="legend-desc">Cycle cameras</span></li>
+      <li><span class="legend-key">F</span><span class="legend-desc">Toggle fullscreen</span></li>
+      <li><span class="legend-key">R</span><span class="legend-desc">Rotate 180°</span></li>
+    </ul>
+  </div>
+
+  <script>
+    (async () => {
+      let videoElement = document.getElementById('camera');
+      let currentStream = null;
+      let videoDevices = [];
+      let currentDeviceIndex = 0;
+
+      async function stopCurrentStream() {
+        if (currentStream) {
+          currentStream.getTracks().forEach(t => t.stop());
+          currentStream = null;
+        }
+      }
+
+      async function startStreamByDeviceId(deviceId) {
+        await stopCurrentStream();
+        const videoConstraints = {
+          width: { ideal: 3840 },
+          height: { ideal: 2160 },
+          frameRate: { ideal: 30 }
+        };
+        if (deviceId) {
+          videoConstraints.deviceId = { exact: deviceId };
+        } else {
+          videoConstraints.facingMode = { ideal: 'environment' };
+        }
+        const stream = await navigator.mediaDevices.getUserMedia({
+          audio: false,
+          video: videoConstraints
+        });
+        currentStream = stream;
+        videoElement.srcObject = stream;
+        await videoElement.play().catch(() => {});
+        return stream;
+      }
+
+      async function enumerateVideoInputs() {
+        const devices = await navigator.mediaDevices.enumerateDevices();
+        videoDevices = devices.filter(d => d.kind === 'videoinput');
+        return videoDevices;
+      }
+
+      function toggleObjectFit() {
+        const current = getComputedStyle(videoElement).objectFit;
+        const next = current === 'cover' ? 'contain' : 'cover';
+        videoElement.style.objectFit = next;
+      }
+
+      async function toggleFullscreen() {
+        try {
+          if (!document.fullscreenElement) {
+            if (document.documentElement.requestFullscreen) {
+              await document.documentElement.requestFullscreen();
+            }
+          } else {
+            if (document.exitFullscreen) {
+              await document.exitFullscreen();
+            }
+          }
+        } catch (e) {
+          console.error(e);
+        }
+      }
+
+      async function cycleCamera() {
+        if (!videoDevices.length) return;
+        let attempts = videoDevices.length;
+        while (attempts-- > 0) {
+          currentDeviceIndex = (currentDeviceIndex + 1) % videoDevices.length;
+          const deviceId = videoDevices[currentDeviceIndex].deviceId;
+          try {
+            await startStreamByDeviceId(deviceId);
+            return;
+          } catch (err) {
+            console.error(err);
+            // try next device
+          }
+        }
+      }
+
+      function applyRotation() {
+        const rotated = videoElement.dataset.rotated === 'true';
+        videoElement.style.transform = rotated ? 'rotate(180deg)' : 'none';
+      }
+
+      function handleKeydown(e) {
+        const code = e.code;
+        const key = e.key;
+        if (code === 'Space') {
+          e.preventDefault();
+          toggleObjectFit();
+          return;
+        }
+        if (key === 'c' || key === 'C') {
+          e.preventDefault();
+          if (!videoDevices.length) {
+            enumerateVideoInputs().then(() => cycleCamera()).catch(() => {});
+          } else {
+            cycleCamera();
+          }
+          return;
+        }
+        if (key === 'f' || key === 'F') {
+          e.preventDefault();
+          toggleFullscreen();
+          return;
+        }
+        if (key === 'r' || key === 'R') {
+          e.preventDefault();
+          videoElement.dataset.rotated = videoElement.dataset.rotated === 'true' ? 'false' : 'true';
+          applyRotation();
+          return;
+        }
+      }
+
+      try {
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+          throw new Error('Camera API not supported in this browser.');
+        }
+
+        // Initial stream to obtain permission and show video
+        await startStreamByDeviceId();
+
+        // Populate device list
+        await enumerateVideoInputs();
+
+        // Set current index to the active device if available
+        try {
+          const track = currentStream && currentStream.getVideoTracks()[0];
+          const settings = track && track.getSettings ? track.getSettings() : null;
+          const currentId = settings && settings.deviceId;
+          if (currentId) {
+            const idx = videoDevices.findIndex(d => d.deviceId === currentId);
+            if (idx >= 0) currentDeviceIndex = idx;
+          }
+        } catch (_) {}
+
+        // Keyboard controls
+        window.addEventListener('keydown', handleKeydown, { passive: false });
+
+        // Legend toggle
+        const legendToggle = document.getElementById('legendToggle');
+        const legendPanel = document.getElementById('legendPanel');
+        function setLegendVisible(visible) {
+          legendPanel.classList.toggle('visible', visible);
+          legendPanel.setAttribute('aria-hidden', visible ? 'false' : 'true');
+          legendToggle.setAttribute('aria-expanded', visible ? 'true' : 'false');
+        }
+        legendToggle.addEventListener('click', () => {
+          const nowVisible = !legendPanel.classList.contains('visible');
+          setLegendVisible(nowVisible);
+        });
+        legendToggle.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            const nowVisible = !legendPanel.classList.contains('visible');
+            setLegendVisible(nowVisible);
+          }
+        });
+        // Start with legend hidden
+        setLegendVisible(false);
+      } catch (err) {
+        // Silent UI, log to console only per "no overlays" requirement
+        console.error(err);
+      }
+    })();
+  </script>
+</body>
+</html>
