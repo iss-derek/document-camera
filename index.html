@@ -85,21 +85,77 @@
       white-space: nowrap;
     }
     .legend-desc { opacity: 0.95; text-align: right; }
+
+    /* Touch control buttons */
+    .controls-actions {
+      margin-top: 12px;
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+    }
+    .control-btn {
+      appearance: none;
+      -webkit-appearance: none;
+      border: 1px solid rgba(255,255,255,0.25);
+      background: rgba(255,255,255,0.12);
+      color: #fff;
+      border-radius: 10px;
+      padding: 12px 14px;
+      font-size: 14px;
+      font-weight: 700;
+      line-height: 1.2;
+      text-align: center;
+      cursor: pointer;
+      backdrop-filter: blur(6px) saturate(120%);
+      -webkit-backdrop-filter: blur(6px) saturate(120%);
+      transition: all 0.2s ease;
+    }
+    .control-btn:hover {
+      background: rgba(255,255,255,0.18);
+      border-color: rgba(255,255,255,0.35);
+    }
+    .control-btn:active { 
+      transform: translateY(1px) scale(0.98);
+    }
+    .control-btn-label {
+      display: block;
+      font-size: 14px;
+      font-weight: 700;
+    }
+    .control-btn-shortcut {
+      display: block;
+      font-size: 11px;
+      font-weight: 400;
+      opacity: 0.7;
+      margin-top: 2px;
+    }
   </style>
 </head>
 <body>
   <video id="camera" autoplay playsinline></video>
-  <div class="legend-toggle" id="legendToggle" title="Show shortcuts" aria-label="Show shortcuts" role="button">
-    <i class="fas fa-info-circle"></i>
+  <div class="legend-toggle" id="controlsToggle" title="Controls" aria-label="Controls" role="button">
+    <i class="fas fa-gear"></i>
   </div>
-  <div class="legend-panel" id="legendPanel" aria-live="polite" aria-hidden="true">
-    <h2>Shortcuts</h2>
-    <ul class="legend-list">
-      <li><span class="legend-key">Space</span><span class="legend-desc">Toggle fill (cover/contain)</span></li>
-      <li><span class="legend-key">C</span><span class="legend-desc">Cycle cameras</span></li>
-      <li><span class="legend-key">F</span><span class="legend-desc">Toggle fullscreen</span></li>
-      <li><span class="legend-key">R</span><span class="legend-desc">Rotate 180°</span></li>
-    </ul>
+  <div class="legend-panel" id="controlsPanel" aria-live="polite" aria-hidden="true">
+    <h2>Controls</h2>
+    <div class="controls-actions" id="controlsActions">
+      <button type="button" class="control-btn" id="fillBtn">
+        <span class="control-btn-label">Fill Mode</span>
+        <span class="control-btn-shortcut">(Space)</span>
+      </button>
+      <button type="button" class="control-btn" id="cycleBtn">
+        <span class="control-btn-label">Cycle Camera</span>
+        <span class="control-btn-shortcut">(C)</span>
+      </button>
+      <button type="button" class="control-btn" id="fullscreenBtn">
+        <span class="control-btn-label">Fullscreen</span>
+        <span class="control-btn-shortcut">(F)</span>
+      </button>
+      <button type="button" class="control-btn" id="rotateBtn">
+        <span class="control-btn-label">Rotate</span>
+        <span class="control-btn-shortcut">(R)</span>
+      </button>
+    </div>
   </div>
 
   <script>
@@ -242,27 +298,46 @@
         // Keyboard controls
         window.addEventListener('keydown', handleKeydown, { passive: false });
 
-        // Legend toggle
-        const legendToggle = document.getElementById('legendToggle');
-        const legendPanel = document.getElementById('legendPanel');
-        function setLegendVisible(visible) {
-          legendPanel.classList.toggle('visible', visible);
-          legendPanel.setAttribute('aria-hidden', visible ? 'false' : 'true');
-          legendToggle.setAttribute('aria-expanded', visible ? 'true' : 'false');
+        // Controls toggle
+        const controlsToggle = document.getElementById('controlsToggle');
+        const controlsPanel = document.getElementById('controlsPanel');
+        
+        function setControlsVisible(visible) {
+          controlsPanel.classList.toggle('visible', visible);
+          controlsPanel.setAttribute('aria-hidden', visible ? 'false' : 'true');
+          controlsToggle.setAttribute('aria-expanded', visible ? 'true' : 'false');
         }
-        legendToggle.addEventListener('click', () => {
-          const nowVisible = !legendPanel.classList.contains('visible');
-          setLegendVisible(nowVisible);
+        
+        controlsToggle.addEventListener('click', () => {
+          const nowVisible = !controlsPanel.classList.contains('visible');
+          setControlsVisible(nowVisible);
         });
-        legendToggle.addEventListener('keydown', (e) => {
+        
+        controlsToggle.addEventListener('keydown', (e) => {
           if (e.key === 'Enter' || e.key === ' ') {
             e.preventDefault();
-            const nowVisible = !legendPanel.classList.contains('visible');
-            setLegendVisible(nowVisible);
+            const nowVisible = !controlsPanel.classList.contains('visible');
+            setControlsVisible(nowVisible);
           }
         });
-        // Start with legend hidden
-        setLegendVisible(false);
+
+        // Wire up control buttons
+        document.getElementById('fillBtn').addEventListener('click', toggleObjectFit);
+        document.getElementById('cycleBtn').addEventListener('click', () => {
+          if (!videoDevices.length) {
+            enumerateVideoInputs().then(() => cycleCamera()).catch(() => {});
+          } else {
+            cycleCamera();
+          }
+        });
+        document.getElementById('fullscreenBtn').addEventListener('click', toggleFullscreen);
+        document.getElementById('rotateBtn').addEventListener('click', () => {
+          videoElement.dataset.rotated = videoElement.dataset.rotated === 'true' ? 'false' : 'true';
+          applyRotation();
+        });
+
+        // Start with controls hidden
+        setControlsVisible(false);
       } catch (err) {
         // Silent UI, log to console only per "no overlays" requirement
         console.error(err);
