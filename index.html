@@ -151,10 +151,10 @@
         <span class="control-btn-label">Fullscreen</span>
         <span class="control-btn-shortcut">(F)</span>
       </button>
-      <button type="button" class="control-btn" id="rotateBtn">
-        <span class="control-btn-label">Rotate</span>
-        <span class="control-btn-shortcut">(R)</span>
-      </button>
+              <button type="button" class="control-btn" id="rotateBtn">
+          <span class="control-btn-label">Rotate 90°</span>
+          <span class="control-btn-shortcut">(R)</span>
+        </button>
     </div>
   </div>
 
@@ -239,8 +239,10 @@
       }
 
       function applyRotation() {
-        const rotated = videoElement.dataset.rotated === 'true';
-        videoElement.style.transform = rotated ? 'rotate(180deg)' : 'none';
+        const currentRotation = parseInt(videoElement.dataset.rotation || '0');
+        const nextRotation = (currentRotation + 90) % 360;
+        videoElement.dataset.rotation = nextRotation.toString();
+        videoElement.style.transform = nextRotation === 0 ? 'none' : `rotate(${nextRotation}deg)`;
       }
 
       function handleKeydown(e) {
@@ -267,7 +269,6 @@
         }
         if (key === 'r' || key === 'R') {
           e.preventDefault();
-          videoElement.dataset.rotated = videoElement.dataset.rotated === 'true' ? 'false' : 'true';
           applyRotation();
           return;
         }
@@ -331,10 +332,7 @@
           }
         });
         document.getElementById('fullscreenBtn').addEventListener('click', toggleFullscreen);
-        document.getElementById('rotateBtn').addEventListener('click', () => {
-          videoElement.dataset.rotated = videoElement.dataset.rotated === 'true' ? 'false' : 'true';
-          applyRotation();
-        });
+        document.getElementById('rotateBtn').addEventListener('click', applyRotation);
 
         // Start with controls hidden
         setControlsVisible(false);
