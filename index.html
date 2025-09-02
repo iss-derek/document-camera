@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
   <title>Document Camera</title>
   <meta name="description" content="Fullscreen webcam viewer for document cameras with zoom controls and camera switching" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" integrity="sha512-iecdLmaskl7CVkqkXNQ/ZH/XLlvWZOJyj7Yy7tcenmpD1ypASozpmT/E0iPtmFIB46ZmdtAc9eNBvH0H/ZpiBw==" crossorigin="anonymous" referrerpolicy="no-referrer" />
@@ -12,6 +12,12 @@
       padding: 0;
       height: 100%;
       background: #000;
+      overflow: hidden;
+      touch-action: none;
+      -webkit-user-select: none;
+      -moz-user-select: none;
+      -ms-user-select: none;
+      user-select: none;
     }
     /* Full-viewport video, maintain aspect, no mirroring */
     video#camera {
@@ -317,6 +323,31 @@
 
         // Keyboard controls
         window.addEventListener('keydown', handleKeydown, { passive: false });
+
+        // Prevent default touch behaviors (zoom, pan, etc.)
+        document.addEventListener('touchstart', (e) => {
+          if (e.touches.length > 1) {
+            e.preventDefault(); // Prevent pinch zoom
+          }
+        }, { passive: false });
+        
+        document.addEventListener('touchmove', (e) => {
+          if (e.touches.length > 1) {
+            e.preventDefault(); // Prevent pinch zoom
+          }
+        }, { passive: false });
+        
+        document.addEventListener('gesturestart', (e) => {
+          e.preventDefault(); // Prevent iOS gesture zoom
+        }, { passive: false });
+        
+        document.addEventListener('gesturechange', (e) => {
+          e.preventDefault(); // Prevent iOS gesture zoom
+        }, { passive: false });
+        
+        document.addEventListener('gestureend', (e) => {
+          e.preventDefault(); // Prevent iOS gesture zoom
+        }, { passive: false });
 
         // Controls toggle
         const controlsToggle = document.getElementById('controlsToggle');
