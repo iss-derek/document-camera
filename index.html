@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <title>Document Camera</title>
   <meta name="description" content="Fullscreen webcam viewer for document cameras with zoom controls and camera switching" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" integrity="sha512-iecdLmaskl7CVkqkXNQ/ZH/XLlvWZOJyj7Yy7tcenmpD1ypASozpmT/E0iPtmFIB46ZmdtAc9eNBvH0H/ZpiBw==" crossorigin="anonymous" referrerpolicy="no-referrer" />
@@ -12,12 +12,6 @@
       padding: 0;
       height: 100%;
       background: #000;
-      overflow: hidden;
-      touch-action: none;
-      -webkit-user-select: none;
-      -moz-user-select: none;
-      -ms-user-select: none;
-      user-select: none;
     }
     /* Full-viewport video, maintain aspect, no mirroring */
     video#camera {
@@ -32,7 +26,7 @@
       display: block;
     }
 
-    /* Legend toggle UI */
+    /* Legend toggle UI - stays same size regardless of zoom */
     .legend-toggle {
       position: fixed;
       right: 16px;
@@ -51,6 +45,9 @@
       user-select: none;
       transition: background 0.2s ease, transform 0.2s ease;
       z-index: 10;
+      /* Keep same size regardless of page zoom */
+      transform-origin: bottom right;
+      transform: scale(1);
     }
     .legend-toggle:hover { background: rgba(255, 255, 255, 0.3); }
     .legend-toggle:active { transform: scale(0.96); }
@@ -73,6 +70,9 @@
       box-shadow: 0 6px 24px rgba(0,0,0,0.35);
       z-index: 10;
       display: none;
+      /* Keep same size regardless of page zoom */
+      transform-origin: bottom right;
+      transform: scale(1);
     }
     .legend-panel.visible { display: block; }
     .legend-panel h2 {
@@ -207,18 +207,8 @@
       }
 
       function toggleObjectFit() {
-        const currentRotation = parseInt(videoElement.dataset.rotation || '0');
         const current = getComputedStyle(videoElement).objectFit;
-        
-        // For 90/270 degree rotations, toggle between 'contain' and 'cover'
-        // For 0/180 degree rotations, toggle between 'cover' and 'contain'
-        let next;
-        if (currentRotation === 90 || currentRotation === 270) {
-          next = current === 'contain' ? 'cover' : 'contain';
-        } else {
-          next = current === 'cover' ? 'contain' : 'cover';
-        }
-        
+        const next = current === 'cover' ? 'contain' : 'cover';
         videoElement.style.objectFit = next;
       }
 
@@ -260,14 +250,9 @@
         videoElement.dataset.rotation = nextRotation.toString();
         videoElement.style.transform = nextRotation === 0 ? 'none' : `rotate(${nextRotation}deg)`;
         
-        // Adjust object-fit for 90/270 degree rotations to prevent black bars
-        if (nextRotation === 90 || nextRotation === 270) {
-          // For 90/270 degree rotations, use 'contain' to show full video without black bars
-          videoElement.style.objectFit = 'contain';
-        } else {
-          // For 0/180 degree rotations, use 'cover' to fill the screen
-          videoElement.style.objectFit = 'cover';
-        }
+        // For all rotations, use 'cover' to fill the screen and prevent black bars
+        // The rotation transform handles the orientation change
+        videoElement.style.objectFit = 'cover';
       }
 
       function handleKeydown(e) {
@@ -323,31 +308,6 @@
 
         // Keyboard controls
         window.addEventListener('keydown', handleKeydown, { passive: false });
-
-        // Prevent default touch behaviors (zoom, pan, etc.)
-        document.addEventListener('touchstart', (e) => {
-          if (e.touches.length > 1) {
-            e.preventDefault(); // Prevent pinch zoom
-          }
-        }, { passive: false });
-        
-        document.addEventListener('touchmove', (e) => {
-          if (e.touches.length > 1) {
-            e.preventDefault(); // Prevent pinch zoom
-          }
-        }, { passive: false });
-        
-        document.addEventListener('gesturestart', (e) => {
-          e.preventDefault(); // Prevent iOS gesture zoom
-        }, { passive: false });
-        
-        document.addEventListener('gesturechange', (e) => {
-          e.preventDefault(); // Prevent iOS gesture zoom
-        }, { passive: false });
-        
-        document.addEventListener('gestureend', (e) => {
-          e.preventDefault(); // Prevent iOS gesture zoom
-        }, { passive: false });
 
         // Controls toggle
         const controlsToggle = document.getElementById('controlsToggle');
