@@ -201,8 +201,18 @@
       }
 
       function toggleObjectFit() {
+        const currentRotation = parseInt(videoElement.dataset.rotation || '0');
         const current = getComputedStyle(videoElement).objectFit;
-        const next = current === 'cover' ? 'contain' : 'cover';
+        
+        // For 90/270 degree rotations, toggle between 'contain' and 'cover'
+        // For 0/180 degree rotations, toggle between 'cover' and 'contain'
+        let next;
+        if (currentRotation === 90 || currentRotation === 270) {
+          next = current === 'contain' ? 'cover' : 'contain';
+        } else {
+          next = current === 'cover' ? 'contain' : 'cover';
+        }
+        
         videoElement.style.objectFit = next;
       }
 
@@ -243,6 +253,15 @@
         const nextRotation = (currentRotation + 90) % 360;
         videoElement.dataset.rotation = nextRotation.toString();
         videoElement.style.transform = nextRotation === 0 ? 'none' : `rotate(${nextRotation}deg)`;
+        
+        // Adjust object-fit for 90/270 degree rotations to prevent black bars
+        if (nextRotation === 90 || nextRotation === 270) {
+          // For 90/270 degree rotations, use 'contain' to show full video without black bars
+          videoElement.style.objectFit = 'contain';
+        } else {
+          // For 0/180 degree rotations, use 'cover' to fill the screen
+          videoElement.style.objectFit = 'cover';
+        }
       }
 
       function handleKeydown(e) {
